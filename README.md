@@ -14,15 +14,10 @@ Before running this project, ensure you have the following installed:
 - **MySQL** (v5.7 or higher) - [Download](https://dev.mysql.com/downloads/mysql/)
 - **Git** - [Download](https://git-scm.com/)
 
-**Development Tools (Optional but Recommended):**
-- **Postman** or similar API testing tool
-- **MySQL Workbench** or any MySQL client
-- **VS Code** or your preferred code editor
-
 ### Installation
 1. Clone the repository
    ```bash
-  
+   https://github.com/umg9bd/backend_for_leaderboard_system
    ```
 
 2. Install dependencies
