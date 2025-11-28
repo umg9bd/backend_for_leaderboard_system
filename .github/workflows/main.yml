@@ -1,0 +1,199 @@
+# This workflow is designed to meet the rubric requirements:
+# 1. Build: Installs dependencies
+# 2. Test: Runs all test suites (Unit, Integration, System)
+# 3. Coverage: Generates a coverage report from the tests
+# 4. Lint: Runs ESLint to check code quality
+# 5. Security: Runs npm audit to check for vulnerabilities
+# 6. Deploy: Zips all code and reports into a single "deployment-package.zip"
+
+name: Node.js CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  # ==================================
+  # 1. LINT (Static Analysis)
+  # ==================================
+  lint:
+    name: "Lint (ESLint)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm' # Cache npm packages
+      - name: Install dependencies
+        run: npm ci # Use 'ci' for faster, reproducible builds
+      
+      - name: Run ESLint
+        # Runs the "lint" script from package.json
+        run: npm run lint
+
+      - name: Upload Lint Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-report
+          path: lint-report.json
+          retention-days: 7 # Keep report for 7 days
+
+  # ==================================
+  # 2. SECURITY (Static Analysis)
+  # ==================================
+  security:
+    name: "Security (npm audit)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run NPM Audit
+        # Runs the "security" script from package.json
+        run: npm run security
+
+      - name: Upload Security Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: security-report.json
+          retention-days: 7
+
+  # ==================================
+  # 3. TEST & COVERAGE
+  # Runs all tests AND generates coverage in one efficient job
+  # ==================================
+  test-and-coverage:
+    name: "Test & Coverage (Jest)"
+    # This job only runs if Lint and Security pass
+    needs: [lint, security]
+    runs-on: ubuntu-latest
+    
+    services:
+      # Start a MySQL 5.7 database
+      mysql-db:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: 'password'
+          MYSQL_DATABASE: 'test_db'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -p'password'"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      
+      # This is the robust "Wait for DB" and "Apply Schema" step
+      - name: Wait for MySQL and Apply Schema
+        run: |
+          sudo apt-get update && sudo apt-get install -y mysql-client
+          echo "Waiting for MySQL database to be ready..."
+          
+          # This loop will only succeed when the DB is fully ready for connections.
+          # This fixes the "ECONNREFUSED" race condition.
+          until mysql -h 127.0.0.1 -u root -p'password' -e 'SELECT 1'; do
+            sleep 1
+          done
+          
+          echo "✅ MySQL is ready! Applying schema..."
+          
+          # This robust command cleans your schema.sql file of any "USE"
+          # or "CREATE DATABASE" lines, forcing it to use the 'test_db'.
+          # This fixes the "Table... doesn't exist" error.
+          cat schema.sql | grep -v "CREATE DATABASE" | grep -v "USE " | mysql -h 127.0.0.1 -u root -p'password' test_db
+          echo "✅ Database schema applied successfully."
+      
+      - name: Run Jest Tests & Generate Coverage
+        # Runs the "test:coverage" script from package.json
+        run: npm run test:coverage
+        env:
+          DB_HOST: 127.0.0.1
+          DB_NAME: 'test_db'
+          DB_USER: 'root'
+          DB_PASSWORD: 'password'
+          CI: true # This tells db.js not to use dotenv
+      
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/ # Upload the whole 'coverage' folder
+          retention-days: 7
+
+  # ==================================
+  # 4. CREATE DEPLOYMENT ARTIFACT
+  # This is your "Deploy" stage
+  # ==================================
+  create-deployment-artifact:
+    name: "Create Deployment Artifact"
+    # This job only runs if ALL previous jobs pass
+    needs: [test-and-coverage, lint, security]
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository (Source Code)
+        uses: actions/checkout@v4
+
+      # Download all the reports we just generated
+      - name: Download all CI reports
+        uses: actions/download-artifact@v4
+        with:
+          # This downloads all artifacts (coverage, lint, security)
+          # into a single folder named 'ci-reports'
+          path: ci-reports
+
+      - name: Display downloaded artifact structure
+        run: ls -R ci-reports
+
+      - name: Zip Deployment Package
+        run: |
+          # Create a 'deployment' directory to hold everything
+          mkdir -p deployment
+          
+          # Copy your application's source code
+          cp -r routes deployment/
+          cp -r frontend deployment/
+          cp -r docs deployment/
+          cp -r coverage deployment/
+          cp server.js db.js package.json package-lock.json schema.sql README.md jest.config.js .eslintrc.js competitionroutes.test.js deployment/
+          
+          # Copy .env.example if it exists (optional file)
+          [ -f .env.example ] && cp .env.example deployment/ || true
+          [ -f .gitignore ] && cp .gitignore deployment/ || true
+          
+          # Copy all the reports into a subfolder
+          cp -r ci-reports/ deployment/reports/
+          
+          # Create the final zip file
+          zip -r deployment-package.zip deployment
+          
+      - name: Upload Deployment Artifact
+        # This is the final file required by Rubric 4.2
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-package
+          path: deployment-package.zip

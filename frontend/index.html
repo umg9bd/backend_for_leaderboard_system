@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard System - Full Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen" class="login-container">
+        <div class="login-card">
+            <h1>🏆</h1>
+            <h1>Leaderboard System</h1>
+            <p>Choose your role to continue</p>
+            <div class="login-options">
+                <button class="login-btn user" onclick="login('user')">
+                    <span>👤</span>
+                    <span>Login as User</span>
+                </button>
+                <button class="login-btn admin" onclick="login('admin')">
+                    <span>⚙️</span>
+                    <span>Login as Admin</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div id="mainDashboard" class="container hidden">
+        <div class="header">
+            <h1>🏆 Leaderboard System</h1>
+            <div class="user-info">
+                <span id="userRole"></span>
+                <button class="logout-btn" onclick="logout()">Logout</button>
+            </div>
+        </div>
+
+        <div class="tabs" id="tabsContainer">
+            <button class="tab-btn active" onclick="switchTab('leaderboard')">📊 Leaderboard</button>
+            <button class="tab-btn" onclick="switchTab('history')">📜 History</button>
+            <button class="tab-btn" onclick="switchTab('player-stats')">👤 Player Stats</button>
+            <button class="tab-btn" onclick="switchTab('tiebreak')">🔗 Tie-break</button>
+            <button class="tab-btn" onclick="switchTab('neighbours')">👥 Neighbours</button>
+            <button class="tab-btn admin-only hidden" onclick="switchTab('admin')">⚙️ Admin</button>
+        </div>
+
+        <!-- LEADERBOARD TAB -->
+        <div id="leaderboard" class="tab-content active">
+            <div class="card">
+                <h2>📊 Live Leaderboard <span id="liveIndicator" style="color: #e74c3c; font-size: 0.8em;">● LIVE</span></h2>
+                
+                <div class="form-group">
+                    <div>
+                        <label>Select Competition</label>
+                        <select id="competitionSelect" onchange="handleCompChange()">
+                            <option>Loading...</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>From Date</label>
+                        <input type="date" id="startDate">
+                    </div>
+                    <div>
+                        <label>To Date</label>
+                        <input type="date" id="endDate">
+                    </div>
+                    <div>
+                        <label>&nbsp;</label>
+                        <button onclick="filterLeaderboard()">Filter</button>
+                    </div>
+                </div>
+
+                <div id="userScoreSubmit" class="user-only hidden">
+                    <h3 style="margin: 25px 0 15px 0; color: #333;">🎯 Submit Score (Live)</h3>
+                    <div class="form-group">
+                        <div>
+                            <label>Player Name</label>
+                            <input type="text" id="livePlayerName" placeholder="Enter your name">
+                        </div>
+                        <div>
+                            <label>Score</label>
+                            <input type="number" id="liveScore" placeholder="Enter score">
+                        </div>
+                        <div style="grid-column: 1 / -1;">
+                            <label>&nbsp;</label>
+                            <button onclick="submitLiveScore()" style="width: 100%; background: #2ecc71;">🎯 Submit Score NOW</button>
+                        </div>
+                    </div>
+                    <div id="submitMessage" style="margin: 15px 0;"></div>
+                </div>
+                <div id="leaderboardError"></div>
+                <p style="color: #999; font-size: 0.9em; margin: 15px 0;">🔄 Leaderboard updates automatically every 2 seconds</p>
+                <div id="leaderboardContent" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- HISTORY TAB -->
+        <div id="history" class="tab-content">
+            <div class="card">
+                <h2>📜 Past Competition Results</h2>
+                <div class="form-group">
+                    <div style="grid-column: 1 / -1;">
+                        <label>Select Competition</label>
+                        <select id="historyCompSelect" onchange="fetchSnapshots()">
+                            <option>Loading...</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="historyContent" class="loading">Loading...</div>
+            </div>
+        </div>
+
+        <!-- PLAYER STATS TAB -->
+        <div id="player-stats" class="tab-content">
+            <div class="card">
+                <h2>👤 Player Career Statistics</h2>
+                <div class="form-group">
+                    <div style="grid-column: 1 / -1;">
+                        <label>Enter Player Name</label>
+                        <input type="text" id="playerNameInput" placeholder="e.g., Meera">
+                    </div>
+                </div>
+                <button onclick="fetchPlayerHistory()" style="width: 100%;">Search Player</button>
+                <div id="playerStatsContent" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- TIEBREAK TAB -->
+        <div id="tiebreak" class="tab-content">
+            <div class="card">
+                <h2>🔗 Tie-break Check</h2>
+                <div class="form-group">
+                    <div>
+                        <label>Select Competition</label>
+                        <select id="tiebreakCompSelect"></select>
+                    </div>
+                    <div>
+                        <label>Player Name</label>
+                        <input type="text" id="tiebreakPlayer" placeholder="e.g., Meera">
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <label>&nbsp;</label>
+                        <button onclick="checkTiebreak()" style="width: 100%;">Check Tie-break</button>
+                    </div>
+                </div>
+                <div id="tiebreakContent" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- NEIGHBOURS TAB -->
+        <div id="neighbours" class="tab-content">
+            <div class="card">
+                <h2>👥 Leaderboard Neighbours</h2>
+                <div class="form-group">
+                    <div>
+                        <label>Select Competition</label>
+                        <select id="neighboursCompSelect"></select>
+                    </div>
+                    <div>
+                        <label>Player Name</label>
+                        <input type="text" id="neighboursPlayer" placeholder="e.g., Meera">
+                    </div>
+                    <div style="grid-column: 1 / -1;">
+                        <label>&nbsp;</label>
+                        <button onclick="fetchNeighbours()" style="width: 100%;">View Neighbours</button>
+                    </div>
+                </div>
+                <div id="neighboursContent" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+
+        <!-- ADMIN TAB -->
+        <div id="admin" class="tab-content">
+            <div class="card">
+                <h2>⚙️ Admin Controls</h2>
+                
+                <h3 style="margin: 20px 0 15px 0; color: #333;">Create New Competition</h3>
+                <div class="form-group">
+                    <div>
+                        <label>Competition Name</label>
+                        <input type="text" id="newCompName" placeholder="e.g., Hackathon 2026">
+                    </div>
+                    <div>
+                        <label>Unique ID</label>
+                        <input type="text" id="newCompId" placeholder="e.g., hackathon2026">
+                    </div>
+                    <div>
+                        <label>Score Type</label>
+                        <input type="text" id="newCompScoreType" placeholder="e.g., points" value="points">
+                    </div>
+                    <div>
+                        <label>Sorting Order</label>
+                        <select id="newCompSorting">
+                            <option value="DESC">DESC (Higher is better)</option>
+                            <option value="ASC">ASC (Lower is better)</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="createCompetition()" style="width: 100%; background: #2ecc71; margin-bottom: 20px;">➕ Create Competition</button>
+
+                <h3 style="margin: 20px 0 15px 0; color: #333;">Submit Score</h3>
+                <div class="form-group">
+                    <div>
+                        <label>Competition</label>
+                        <select id="adminCompSelect"></select>
+                    </div>
+                    <div>
+                        <label>Player Name</label>
+                        <input type="text" id="adminPlayerName" placeholder="Player name">
+                    </div>
+                    <div>
+                        <label>Score</label>
+                        <input type="number" id="adminScore" placeholder="Score">
+                    </div>
+                    <div>
+                        <label>&nbsp;</label>
+                        <button onclick="submitAdminScore()">Submit Score</button>
+                    </div>
+                </div>
+
+                <h3 style="margin: 20px 0 15px 0; color: #333;">Finalize Competition</h3>
+                <div class="form-group">
+                    <div style="grid-column: 1 / -1;">
+                        <label>Competition</label>
+                        <select id="finalizeCompSelect"></select>
+                    </div>
+                </div>
+                <button onclick="finalizeCompetition()" style="width: 100%; background: #764ba2;">Finalize & Save Snapshot</button>
+
+                <h3 style="margin: 20px 0 15px 0; color: #333;">Reset Competition</h3>
+                <div class="form-group">
+                    <div style="grid-column: 1 / -1;">
+                        <label>Competition</label>
+                        <select id="resetCompSelect"></select>
+                    </div>
+                </div>
+                <button onclick="resetCompetition()" style="width: 100%; background: #e74c3c;">⚠️ Reset All Data</button>
+
+                <div id="adminMessage" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
