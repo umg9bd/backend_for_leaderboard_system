@@ -1,0 +1,7 @@
+# dependencies
+.env
+node_modules
+payload.json
+reset_comp.json
+score.json
+update_score.json
